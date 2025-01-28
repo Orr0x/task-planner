@@ -43,8 +43,8 @@ const Dashboard = () => {
 
   return (
     <AppShell
-      header={{ height: 60 }}
-      padding="md"
+      header={{ height: 58 }}
+      padding={7} // Remove padding completely
       styles={{
         main: {
           background: 'var(--mantine-color-gray-0)',
@@ -59,60 +59,84 @@ const Dashboard = () => {
       </AppShell.Header>
 
       <AppShell.Main>
-        <Container fluid>
+        <Container 
+          fluid 
+          p={0} // Remove container padding
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px', // Consistent gap between all sections
+          }}
+        >
           {/* View Selector */}
-          <Paper shadow="xs" withBorder mb="md" bg="white">
-            <Box p="md">
-              <Group justify="center">
-                <SegmentedControl
-                  value={view}
-                  onChange={(value) => setView(value as ViewType)}
-                  data={[
-                    {
-                      value: 'kanban',
-                      label: (
-                        <Group gap={rem(4)}>
-                          <IconLayoutKanban size={16} />
-                          <span>Kanban</span>
-                        </Group>
-                      ),
-                    },
-                    {
-                      value: 'gantt',
-                      label: (
-                        <Group gap={rem(4)}>
-                          <IconTimeline size={16} />
-                          <span>Gantt</span>
-                        </Group>
-                      ),
-                    },
-                    {
-                      value: 'calendar',
-                      label: (
-                        <Group gap={rem(4)}>
-                          <IconCalendar size={16} />
-                          <span>Calendar</span>
-                        </Group>
-                      ),
-                    },
-                    {
-                      value: 'list',
-                      label: (
-                        <Group gap={rem(4)}>
-                          <IconList size={16} />
-                          <span>List</span>
-                        </Group>
-                      ),
-                    },
-                  ]}
-                  size="sm"
-                />
-              </Group>
-            </Box>
+          <Paper 
+            shadow="xs" 
+            withBorder 
+            bg="white"
+            p={6}
+            style={{ margin: '0 8px' }} // Add horizontal margin to align with content
+          >
+            <Group justify="center">
+              <SegmentedControl
+                value={view}
+                onChange={(value) => setView(value as ViewType)}
+                data={[
+                  {
+                    value: 'kanban',
+                    label: (
+                      <Group gap={rem(4)} wrap="nowrap" style={{ minWidth: rem(90) }}>
+                        <IconLayoutKanban size={16} />
+                        <span>Kanban</span>
+                      </Group>
+                    ),
+                  },
+                  {
+                    value: 'gantt',
+                    label: (
+                      <Group gap={rem(4)} wrap="nowrap" style={{ minWidth: rem(90) }}>
+                        <IconTimeline size={16} />
+                        <span>Gantt</span>
+                      </Group>
+                    ),
+                  },
+                  {
+                    value: 'calendar',
+                    label: (
+                      <Group gap={rem(4)} wrap="nowrap" style={{ minWidth: rem(90) }}>
+                        <IconCalendar size={16} />
+                        <span>Calendar</span>
+                      </Group>
+                    ),
+                  },
+                  {
+                    value: 'list',
+                    label: (
+                      <Group gap={rem(4)} wrap="nowrap" style={{ minWidth: rem(90) }}>
+                        <IconList size={16} />
+                        <span>List</span>
+                      </Group>
+                    ),
+                  },
+                ]}
+                size="sm"
+                styles={{
+                  root: {
+                    height: rem(32),
+                  },
+                  label: {
+                    height: rem(32),
+                    padding: `0 ${rem(12)}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                }}
+              />
+            </Group>
           </Paper>
 
           {/* Main Content */}
-          <Box>{renderView()}</Box>
+          <Box style={{ margin: '0 8px' }}>{renderView()}</Box>
         </Container>
       </AppShell.Main>
     </AppShell>

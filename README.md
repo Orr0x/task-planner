@@ -1,6 +1,6 @@
-# Task Planning Application
+# Task Planner
 
-A full-stack task management application with multiple views (Kanban, Gantt, List) built with React, Node.js, and MongoDB.
+A full-stack task planning application with multiple views and authentication.
 
 ## Features
 
@@ -9,49 +9,46 @@ A full-stack task management application with multiple views (Kanban, Gantt, Lis
   - Secure session management with JWT
   - Protected routes and API endpoints
 
-- **Project Management**
-  - Create and manage multiple projects
-  - Switch between different projects
-  - Invite team members (coming soon)
-
-- **Task Views**
-  - **Kanban Board**: Drag-and-drop tasks between status columns
-  - **Gantt Chart**: Visualize tasks over time with resizable date ranges
-  - **List View**: Sort and filter tasks in a table format
+- **Multiple Views**
+  - Kanban Board: Drag-and-drop task management
+  - Gantt Chart: Timeline visualization
+  - Calendar View: Monthly task overview
+  - List View: Sortable/filterable task table
 
 - **Task Management**
   - Create, edit, and delete tasks
-  - Set task status (Todo, In Progress, Done)
-  - Assign start and end dates
-  - Add descriptions and assign to team members
+  - Assign tasks to users
+  - Set start and end dates
+  - Track task status
+  - Add descriptions and details
 
 ## Tech Stack
 
-### Frontend
-- React with TypeScript
-- React Router for navigation
-- Mantine UI components
-- React Query for data fetching
-- Hello-Pangea/DND for drag-and-drop
-- Axios for API requests
+- **Frontend**
+  - React with TypeScript
+  - Mantine UI components
+  - date-fns for date manipulation
+  - Vite for development and building
 
-### Backend
-- Node.js with Express
-- MongoDB with Mongoose
-- JWT for authentication
-- TypeScript for type safety
+- **Backend**
+  - Node.js with TypeScript
+  - Express.js
+  - MongoDB with Mongoose
+  - JWT for authentication
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (v16 or higher)
 - MongoDB running locally or a MongoDB Atlas connection string
+- Git
 
 ### Installation
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/Orr0x/task-planner.git
 cd task-planner
 ```
 
@@ -70,14 +67,14 @@ npm install
 
 Backend (.env):
 ```env
-PORT=5000
+PORT=3000
 MONGODB_URI=mongodb://localhost:27017/project-planner
-JWT_SECRET=your-secret-key
+JWT_SECRET=your_jwt_secret_here
 ```
 
 Frontend (.env):
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:3000
 ```
 
 4. Start the development servers:
@@ -88,66 +85,58 @@ cd backend
 npm run dev
 ```
 
-Frontend:
+Frontend (in a new terminal):
 ```bash
 cd frontend
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`
+5. Visit `http://localhost:5173` in your browser
 
 ## Project Structure
 
 ```
 task-planner/
-├── backend/
+├── backend/                 # Backend server
 │   ├── src/
 │   │   ├── controllers/    # Request handlers
 │   │   ├── middleware/     # Custom middleware
-│   │   ├── models/         # Mongoose models
-│   │   ├── routes/         # API routes
-│   │   └── index.ts        # Entry point
+│   │   ├── models/        # Mongoose models
+│   │   ├── routes/        # API routes
+│   │   └── index.ts       # Server entry point
 │   └── package.json
 │
-└── frontend/
-    ├── src/
-    │   ├── components/     # Reusable components
-    │   ├── contexts/       # React contexts
-    │   ├── pages/          # Page components
-    │   ├── services/       # API services
-    │   ├── types/          # TypeScript types
-    │   └── App.tsx         # Root component
-    └── package.json
+├── frontend/               # React frontend
+│   ├── src/
+│   │   ├── components/    # Reusable components
+│   │   ├── contexts/      # React contexts
+│   │   ├── pages/         # Page components
+│   │   ├── services/      # API services
+│   │   └── types/         # TypeScript types
+│   └── package.json
+│
+└── README.md
 ```
 
 ## API Endpoints
 
-### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user
+- **Auth**
+  - POST `/api/auth/register` - Register new user
+  - POST `/api/auth/login` - Login user
+  - GET `/api/auth/me` - Get current user
 
-### Projects
-- `GET /api/projects` - Get all projects
-- `POST /api/projects` - Create a new project
-- `GET /api/projects/:id` - Get project by ID
-- `PATCH /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete project
-
-### Tasks
-- `GET /api/projects/:id/tasks` - Get tasks for a project
-- `POST /api/tasks` - Create a new task
-- `PATCH /api/tasks/:id` - Update task
-- `DELETE /api/tasks/:id` - Delete task
-- `PATCH /api/tasks/bulk` - Bulk update tasks
-- `DELETE /api/tasks/bulk` - Bulk delete tasks
+- **Tasks**
+  - GET `/api/tasks` - List all tasks
+  - POST `/api/tasks` - Create new task
+  - PUT `/api/tasks/:id` - Update task
+  - DELETE `/api/tasks/:id` - Delete task
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
 ## License
