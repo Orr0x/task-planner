@@ -1,48 +1,57 @@
-# Task Planner
+# Task Planning Application
 
-A full-stack task planning application with authentication, featuring Kanban board, Gantt chart, and list views.
+A full-stack task management application with multiple views (Kanban, Gantt, List) built with React, Node.js, and MongoDB.
 
 ## Features
 
-- User authentication (register, login, session management)
-- Multiple project views:
-  - Kanban board
-  - Gantt chart
-  - List view
-- Project management
-- Task management with drag-and-drop
-- Real-time updates
-- Responsive design
+- **Authentication**
+  - User registration and login
+  - Secure session management with JWT
+  - Protected routes and API endpoints
+
+- **Project Management**
+  - Create and manage multiple projects
+  - Switch between different projects
+  - Invite team members (coming soon)
+
+- **Task Views**
+  - **Kanban Board**: Drag-and-drop tasks between status columns
+  - **Gantt Chart**: Visualize tasks over time with resizable date ranges
+  - **List View**: Sort and filter tasks in a table format
+
+- **Task Management**
+  - Create, edit, and delete tasks
+  - Set task status (Todo, In Progress, Done)
+  - Assign start and end dates
+  - Add descriptions and assign to team members
 
 ## Tech Stack
 
 ### Frontend
-- React
-- TypeScript
-- Mantine UI
-- React Query
-- React Router
-- Axios
+- React with TypeScript
+- React Router for navigation
+- Mantine UI components
+- React Query for data fetching
+- Hello-Pangea/DND for drag-and-drop
+- Axios for API requests
 
 ### Backend
-- Node.js
-- Express
-- TypeScript
+- Node.js with Express
 - MongoDB with Mongoose
-- JWT Authentication
-- CORS
+- JWT for authentication
+- TypeScript for type safety
 
-## Prerequisites
+## Getting Started
 
+### Prerequisites
 - Node.js (v16 or higher)
-- MongoDB (running locally or a remote instance)
-- npm or yarn
+- MongoDB running locally or a MongoDB Atlas connection string
 
-## Installation
+### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/task-planner.git
+git clone <repository-url>
 cd task-planner
 ```
 
@@ -57,73 +66,77 @@ cd ../frontend
 npm install
 ```
 
-3. Create `.env` files:
+3. Set up environment variables:
 
-Backend `.env` (in `/backend`):
-```
+Backend (.env):
+```env
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/project-planner
 JWT_SECRET=your-secret-key
 ```
 
-Frontend `.env` (in `/frontend`):
-```
+Frontend (.env):
+```env
 VITE_API_URL=http://localhost:5000/api
 ```
 
-## Running the Application
+4. Start the development servers:
 
-1. Start MongoDB (if running locally)
-
-2. Start the backend server:
+Backend:
 ```bash
 cd backend
-npm run build
-npm start
+npm run dev
 ```
 
-3. Start the frontend development server:
+Frontend:
 ```bash
 cd frontend
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+The application will be available at `http://localhost:5173`
 
-## Development
+## Project Structure
 
-### Backend Structure
-- `/src/controllers` - Request handlers
-- `/src/middleware` - Custom middleware (auth, error handling)
-- `/src/models` - MongoDB models
-- `/src/routes` - API routes
-- `/src/types` - TypeScript type definitions
-
-### Frontend Structure
-- `/src/components` - Reusable React components
-- `/src/contexts` - React context providers
-- `/src/pages` - Page components
-- `/src/services` - API services
-- `/src/types` - TypeScript type definitions
+```
+task-planner/
+├── backend/
+│   ├── src/
+│   │   ├── controllers/    # Request handlers
+│   │   ├── middleware/     # Custom middleware
+│   │   ├── models/         # Mongoose models
+│   │   ├── routes/         # API routes
+│   │   └── index.ts        # Entry point
+│   └── package.json
+│
+└── frontend/
+    ├── src/
+    │   ├── components/     # Reusable components
+    │   ├── contexts/       # React contexts
+    │   ├── pages/          # Page components
+    │   ├── services/       # API services
+    │   ├── types/          # TypeScript types
+    │   └── App.tsx         # Root component
+    └── package.json
+```
 
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/register` - Register new user
+- `POST /api/auth/register` - Register a new user
 - `POST /api/auth/login` - Login user
 - `GET /api/auth/me` - Get current user
 
 ### Projects
 - `GET /api/projects` - Get all projects
-- `POST /api/projects` - Create new project
-- `GET /api/projects/:id` - Get single project
+- `POST /api/projects` - Create a new project
+- `GET /api/projects/:id` - Get project by ID
 - `PATCH /api/projects/:id` - Update project
 - `DELETE /api/projects/:id` - Delete project
 
 ### Tasks
-- `GET /api/tasks` - Get all tasks
-- `POST /api/tasks` - Create new task
-- `GET /api/tasks/:id` - Get single task
+- `GET /api/projects/:id/tasks` - Get tasks for a project
+- `POST /api/tasks` - Create a new task
 - `PATCH /api/tasks/:id` - Update task
 - `DELETE /api/tasks/:id` - Delete task
 - `PATCH /api/tasks/bulk` - Bulk update tasks
@@ -139,4 +152,4 @@ npm run dev
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -5,28 +5,43 @@ import { User } from '../models/User';
 
 const router = express.Router();
 
+// Format user data consistently
+const formatUserResponse = (user: any, token?: string) => ({
+  success: true,
+  data: {
+    user: {
+      id: user._id,
+      email: user.email,
+      fullName: user.fullName,
+    },
+    ...(token && { token }),
+  },
+});
+
 // Register new user
-const register = async (req: express.Request, res: express.Response) => {
+const register = async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     console.log('Registering user:', req.body);
     const { email, password, fullName } = req.body;
 
     // Validate input
     if (!email || !password || !fullName) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'All fields are required',
       });
+      return;
     }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       console.log('User already exists:', email);
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Email already registered',
       });
+      return;
     }
 
     // Create new user
@@ -44,17 +59,7 @@ const register = async (req: express.Request, res: express.Response) => {
     );
 
     console.log('User registered successfully:', user._id);
-    res.status(201).json({
-      success: true,
-      data: {
-        user: {
-          id: user._id,
-          email: user.email,
-          fullName: user.fullName,
-        },
-        token,
-      },
-    });
+    res.status(201).json(formatUserResponse(user, token));
   } catch (error: any) {
     console.error('Registration error:', error);
     res.status(500).json({
@@ -65,37 +70,40 @@ const register = async (req: express.Request, res: express.Response) => {
 };
 
 // Login user
-const login = async (req: express.Request, res: express.Response) => {
+const login = async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     console.log('Login attempt:', req.body.email);
     const { email, password } = req.body;
 
     // Validate input
     if (!email || !password) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: 'Email and password are required',
       });
+      return;
     }
 
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
       console.log('User not found:', email);
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Invalid credentials',
       });
+      return;
     }
 
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       console.log('Invalid password for user:', email);
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         error: 'Invalid credentials',
       });
+      return;
     }
 
     // Generate token
@@ -106,17 +114,7 @@ const login = async (req: express.Request, res: express.Response) => {
     );
 
     console.log('User logged in successfully:', user._id);
-    res.json({
-      success: true,
-      data: {
-        user: {
-          id: user._id,
-          email: user.email,
-          fullName: user.fullName,
-        },
-        token,
-      },
-    });
+    res.json(formatUserResponse(user, token));
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({
@@ -127,28 +125,20 @@ const login = async (req: express.Request, res: express.Response) => {
 };
 
 // Get current user
-const getCurrentUser = async (req: express.Request, res: express.Response) => {
+const getCurrentUser = async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     console.log('Getting current user:', req.user?._id);
     const user = await User.findById(req.user?._id).select('-password');
     if (!user) {
       console.log('User not found:', req.user?._id);
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'User not found',
       });
+      return;
     }
 
-    res.json({
-      success: true,
-      data: {
-        user: {
-          id: user._id,
-          email: user.email,
-          fullName: user.fullName,
-        },
-      },
-    });
+    res.json(formatUserResponse(user));
   } catch (error: any) {
     console.error('Get current user error:', error);
     res.status(500).json({

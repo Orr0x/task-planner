@@ -49,12 +49,12 @@ app.use('/api/projects', projectRoutes);
 app.use(errorHandler);
 
 // Health check route
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
 // Root route
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.json({ message: 'Task Planner API' });
 });
 

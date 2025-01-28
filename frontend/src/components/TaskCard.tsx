@@ -1,44 +1,28 @@
-import { useDraggable } from '@dnd-kit/core';
-import { Paper, Text, Group, ActionIcon, Menu, Badge, rem, Tooltip } from '@mantine/core';
-import { IconDots, IconPencil, IconTrash, IconCalendar, IconUser } from '@tabler/icons-react';
 import { useState } from 'react';
+import {
+  Paper,
+  Text,
+  Group,
+  Badge,
+  ActionIcon,
+  Menu,
+  rem,
+  Box,
+} from '@mantine/core';
+import { IconDots, IconPencil, IconTrash } from '@tabler/icons-react';
 import { Task } from '../types';
 import { useTask } from '../contexts/TaskContext';
-import EditTaskModal from '../components/EditTaskModal';
+import EditTaskModal from './EditTaskModal';
+import { Draggable, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd';
 
 interface TaskCardProps {
   task: Task;
-  overlay?: boolean;
+  index: number;
 }
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
-};
-
-export default function TaskCard({ task, overlay }: TaskCardProps) {
-  const [editModalOpen, setEditModalOpen] = useState(false);
+const TaskCard = ({ task, index }: TaskCardProps) => {
   const { deleteTask } = useTask();
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    isDragging,
-  } = useDraggable({
-    id: task._id,
-    data: task,
-  });
-
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    opacity: isDragging ? 0.5 : 1,
-  } : undefined;
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const getStatusColor = (status: Task['status']) => {
     switch (status) {
@@ -53,111 +37,86 @@ export default function TaskCard({ task, overlay }: TaskCardProps) {
     }
   };
 
-  const getStatusLabel = (status: Task['status']) => {
-    switch (status) {
-      case 'inProgress':
-        return 'In Progress';
-      default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
-    }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
   };
-
-  if (overlay) {
-    return (
-      <Paper
-        shadow="sm"
-        p="md"
-        withBorder
-        style={{
-          backgroundColor: 'white',
-          width: '100%',
-          maxWidth: rem(300),
-        }}
-      >
-        <Text fz="sm" fw={500}>{task.title}</Text>
-      </Paper>
-    );
-  }
-
-  const dateRange = `${formatDate(task.startDate)} - ${formatDate(task.endDate)}`;
 
   return (
     <>
-      <Paper
-        ref={setNodeRef}
-        shadow="sm"
-        p="md"
-        withBorder
-        style={{
-          ...style,
-          cursor: 'grab',
-          position: 'relative',
-          touchAction: 'none',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-          '&:hover': {
-            transform: 'translateY(-2px)',
-            boxShadow: 'var(--mantine-shadow-md)',
-          },
-        }}
-        {...attributes}
-        {...listeners}
-      >
-        <Group justify="space-between" mb="xs">
-          <Text fz="sm" fw={500} style={{ flex: 1 }} lineClamp={1}>
-            {task.title}
-          </Text>
-          <Menu withinPortal position="bottom-end" shadow="sm">
-            <Menu.Target>
-              <ActionIcon variant="subtle" size="sm">
-                <IconDots size={16} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item
-                leftSection={<IconPencil size={16} />}
-                onClick={() => setEditModalOpen(true)}
-              >
-                Edit
-              </Menu.Item>
-              <Menu.Item
-                leftSection={<IconTrash size={16} />}
-                color="red"
-                onClick={() => deleteTask(task._id)}
-              >
-                Delete
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-        </Group>
-
-        <Text size="sm" c="dimmed" mb="xs" lineClamp={2}>
-          {task.description}
-        </Text>
-
-        <Group gap="xs">
-          <Badge color={getStatusColor(task.status)}>
-            {getStatusLabel(task.status)}
-          </Badge>
-          
-          <Tooltip label={dateRange} position="bottom">
-            <Group gap="xs" wrap="nowrap">
-              <IconCalendar size={14} style={{ color: 'var(--mantine-color-dimmed)' }} />
-              <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                {formatDate(task.startDate)}
+      <Draggable draggableId={task._id} index={index}>
+        {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
+          <Paper
+            shadow="xs"
+            p="md"
+            mb="sm"
+            withBorder
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            style={{
+              backgroundColor: snapshot.isDragging
+                ? 'var(--mantine-color-gray-1)'
+                : undefined,
+              ...provided.draggableProps.style,
+            }}
+          >
+            <Group justify="space-between" mb="xs">
+              <Text fw={500} size="sm" lineClamp={2} style={{ flex: 1 }}>
+                {task.title}
               </Text>
+              <Menu position="bottom-end" shadow="sm">
+                <Menu.Target>
+                  <ActionIcon variant="subtle" size="sm">
+                    <IconDots style={{ width: rem(16), height: rem(16) }} stroke={1.5} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconPencil style={{ width: rem(14), height: rem(14) }} />}
+                    onClick={() => setEditModalOpen(true)}
+                  >
+                    Edit
+                  </Menu.Item>
+                  <Menu.Item
+                    color="red"
+                    leftSection={<IconTrash style={{ width: rem(14), height: rem(14) }} />}
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this task?')) {
+                        deleteTask(task._id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
             </Group>
-          </Tooltip>
 
-          <Tooltip label={`Assigned to ${task.assignedTo.fullName}`} position="bottom">
-            <Group gap="xs" wrap="nowrap">
-              <IconUser size={14} style={{ color: 'var(--mantine-color-dimmed)' }} />
-              <Text size="xs" c="dimmed" truncate>
-                {task.assignedTo.fullName}
-              </Text>
+            <Text size="sm" c="dimmed" lineClamp={3} mb="xs">
+              {task.description}
+            </Text>
+
+            <Group justify="space-between" wrap="nowrap">
+              <Badge
+                color={getStatusColor(task.status)}
+                variant="light"
+                size="sm"
+              >
+                {task.status === 'inProgress' ? 'In Progress' : 
+                  task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+              </Badge>
+              <Box>
+                <Text size="xs" c="dimmed">
+                  {formatDate(task.startDate)} - {formatDate(task.endDate)}
+                </Text>
+              </Box>
             </Group>
-          </Tooltip>
-        </Group>
-      </Paper>
+          </Paper>
+        )}
+      </Draggable>
 
       <EditTaskModal
         task={task}
@@ -166,4 +125,6 @@ export default function TaskCard({ task, overlay }: TaskCardProps) {
       />
     </>
   );
-}
+};
+
+export default TaskCard;

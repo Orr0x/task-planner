@@ -54,8 +54,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      // Clear token and redirect to login
+      // Clear token and user data
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
 
@@ -69,6 +70,7 @@ export const authApi = {
     const response = await api.post<AuthResponse>('/auth/register', credentials);
     if (response.data.success && response.data.data.token) {
       localStorage.setItem('token', response.data.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.data.user));
     }
     return response.data;
   },
@@ -77,17 +79,22 @@ export const authApi = {
     const response = await api.post<AuthResponse>('/auth/login', credentials);
     if (response.data.success && response.data.data.token) {
       localStorage.setItem('token', response.data.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.data.user));
     }
     return response.data;
   },
 
   getCurrentUser: async () => {
     const response = await api.get<AuthResponse>('/auth/me');
+    if (response.data.success) {
+      localStorage.setItem('user', JSON.stringify(response.data.data.user));
+    }
     return response.data;
   },
 
   logout: () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
   },
 };
 

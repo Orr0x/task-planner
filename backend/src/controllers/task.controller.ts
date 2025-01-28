@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { Task } from '../models/Task';
 import { Project } from '../models/Project';
 
 // Get all tasks for current user (across all projects)
-export const getTasks = async (req: Request, res: Response) => {
+export const getTasks = async (req: Request, res: Response): Promise<void> => {
   try {
     // Get all projects the user has access to
     const projects = await Project.find({
@@ -27,26 +28,38 @@ export const getTasks = async (req: Request, res: Response) => {
       success: true,
       data: tasks,
     });
-  } catch (error) {
+    return;
+  } catch (error: any) {
+    console.error('Error fetching tasks:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch tasks',
+      error: error.message || 'Failed to fetch tasks',
     });
+    return;
   }
 };
 
 // Get single task
-export const getTask = async (req: Request, res: Response) => {
+export const getTask = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid task ID',
+      });
+      return;
+    }
+
     const task = await Task.findById(req.params.id)
       .populate('assignedTo', 'fullName email')
       .populate('createdBy', 'fullName email');
 
     if (!task) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Task not found',
       });
+      return;
     }
 
     // Check if user has access to the project
@@ -59,28 +72,40 @@ export const getTask = async (req: Request, res: Response) => {
     });
 
     if (!project) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: 'Not authorized to access this task',
       });
+      return;
     }
 
     res.json({
       success: true,
       data: task,
     });
-  } catch (error) {
+    return;
+  } catch (error: any) {
+    console.error('Error fetching task:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch task',
+      error: error.message || 'Failed to fetch task',
     });
+    return;
   }
 };
 
 // Create task
-export const createTask = async (req: Request, res: Response) => {
+export const createTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const { projectId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid project ID',
+      });
+      return;
+    }
 
     // Check if user has access to the project
     const project = await Project.findOne({
@@ -92,15 +117,27 @@ export const createTask = async (req: Request, res: Response) => {
     });
 
     if (!project) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: 'Not authorized to create tasks in this project',
       });
+      return;
+    }
+
+    // Validate required fields
+    const { title, description, status, startDate, endDate, assignedTo } = req.body;
+    if (!title || !description || !status || !startDate || !endDate || !assignedTo) {
+      res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+      });
+      return;
     }
 
     const task = await Task.create({
       ...req.body,
       createdBy: req.user?._id,
+      projectId: project._id,
     });
 
     await task.populate('assignedTo', 'fullName email');
@@ -110,24 +147,36 @@ export const createTask = async (req: Request, res: Response) => {
       success: true,
       data: task,
     });
-  } catch (error) {
+    return;
+  } catch (error: any) {
+    console.error('Error creating task:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create task',
+      error: error.message || 'Failed to create task',
     });
+    return;
   }
 };
 
 // Update task
-export const updateTask = async (req: Request, res: Response) => {
+export const updateTask = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid task ID',
+      });
+      return;
+    }
+
     const task = await Task.findById(req.params.id);
 
     if (!task) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Task not found',
       });
+      return;
     }
 
     // Check if user has access to the project
@@ -140,16 +189,17 @@ export const updateTask = async (req: Request, res: Response) => {
     });
 
     if (!project) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: 'Not authorized to update this task',
       });
+      return;
     }
 
     const updatedTask = await Task.findByIdAndUpdate(
       req.params.id,
       { ...req.body },
-      { new: true }
+      { new: true, runValidators: true }
     )
       .populate('assignedTo', 'fullName email')
       .populate('createdBy', 'fullName email');
@@ -158,24 +208,36 @@ export const updateTask = async (req: Request, res: Response) => {
       success: true,
       data: updatedTask,
     });
-  } catch (error) {
+    return;
+  } catch (error: any) {
+    console.error('Error updating task:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update task',
+      error: error.message || 'Failed to update task',
     });
+    return;
   }
 };
 
 // Delete task
-export const deleteTask = async (req: Request, res: Response) => {
+export const deleteTask = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid task ID',
+      });
+      return;
+    }
+
     const task = await Task.findById(req.params.id);
 
     if (!task) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         error: 'Task not found',
       });
+      return;
     }
 
     // Check if user has access to the project
@@ -188,10 +250,11 @@ export const deleteTask = async (req: Request, res: Response) => {
     });
 
     if (!project) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: 'Not authorized to delete this task',
       });
+      return;
     }
 
     await task.deleteOne();
@@ -200,22 +263,34 @@ export const deleteTask = async (req: Request, res: Response) => {
       success: true,
       data: { message: 'Task deleted successfully' },
     });
-  } catch (error) {
+    return;
+  } catch (error: any) {
+    console.error('Error deleting task:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete task',
+      error: error.message || 'Failed to delete task',
     });
+    return;
   }
 };
 
 // Bulk update tasks
-export const bulkUpdateTasks = async (req: Request, res: Response) => {
+export const bulkUpdateTasks = async (req: Request, res: Response): Promise<void> => {
   try {
     const { ids, update } = req.body;
 
+    // Validate task IDs
+    if (!Array.isArray(ids) || ids.some(id => !mongoose.Types.ObjectId.isValid(id))) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid task IDs',
+      });
+      return;
+    }
+
     // Check if user has access to all tasks' projects
     const tasks = await Task.find({ _id: { $in: ids } });
-    const projectIds = [...new Set(tasks.map(t => t.projectId.toString()))];
+    const projectIds = [...new Set(tasks.map(t => t.projectId))];
 
     const accessibleProjects = await Project.find({
       _id: { $in: projectIds },
@@ -226,15 +301,17 @@ export const bulkUpdateTasks = async (req: Request, res: Response) => {
     });
 
     if (accessibleProjects.length !== projectIds.length) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: 'Not authorized to update some of these tasks',
       });
+      return;
     }
 
     const result = await Task.updateMany(
       { _id: { $in: ids } },
-      { $set: update }
+      { $set: update },
+      { runValidators: true }
     );
 
     res.json({
@@ -243,22 +320,34 @@ export const bulkUpdateTasks = async (req: Request, res: Response) => {
         modifiedCount: result.modifiedCount,
       },
     });
-  } catch (error) {
+    return;
+  } catch (error: any) {
+    console.error('Error bulk updating tasks:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update tasks',
+      error: error.message || 'Failed to update tasks',
     });
+    return;
   }
 };
 
 // Bulk delete tasks
-export const bulkDeleteTasks = async (req: Request, res: Response) => {
+export const bulkDeleteTasks = async (req: Request, res: Response): Promise<void> => {
   try {
     const { ids } = req.body;
 
+    // Validate task IDs
+    if (!Array.isArray(ids) || ids.some(id => !mongoose.Types.ObjectId.isValid(id))) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid task IDs',
+      });
+      return;
+    }
+
     // Check if user has access to all tasks' projects
     const tasks = await Task.find({ _id: { $in: ids } });
-    const projectIds = [...new Set(tasks.map(t => t.projectId.toString()))];
+    const projectIds = [...new Set(tasks.map(t => t.projectId))];
 
     const accessibleProjects = await Project.find({
       _id: { $in: projectIds },
@@ -269,10 +358,11 @@ export const bulkDeleteTasks = async (req: Request, res: Response) => {
     });
 
     if (accessibleProjects.length !== projectIds.length) {
-      return res.status(403).json({
+      res.status(403).json({
         success: false,
         error: 'Not authorized to delete some of these tasks',
       });
+      return;
     }
 
     const result = await Task.deleteMany({ _id: { $in: ids } });
@@ -283,10 +373,13 @@ export const bulkDeleteTasks = async (req: Request, res: Response) => {
         modifiedCount: result.deletedCount,
       },
     });
-  } catch (error) {
+    return;
+  } catch (error: any) {
+    console.error('Error bulk deleting tasks:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete tasks',
+      error: error.message || 'Failed to delete tasks',
     });
+    return;
   }
 };

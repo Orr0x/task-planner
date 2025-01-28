@@ -4,95 +4,95 @@ import {
   TextInput,
   Textarea,
   Button,
+  Group,
   Stack,
   Select,
-  Group,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useTask } from '../contexts/TaskContext';
-import { useProject } from '../contexts/ProjectContext';
-import { Task } from '../types';
+import { Task, UpdateTaskInput } from '../types';
 
 interface EditTaskModalProps {
-  task: Task;
+  task: Task | null;
   opened: boolean;
   onClose: () => void;
 }
 
-export default function EditTaskModal({ task, opened, onClose }: EditTaskModalProps) {
+const EditTaskModal = ({ task, opened, onClose }: EditTaskModalProps) => {
   const { updateTask } = useTask();
-  const { currentProject } = useProject();
-  const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description);
-  const [status, setStatus] = useState<Task['status']>(task.status);
-  const [startDate, setStartDate] = useState<Date>(new Date(task.startDate));
-  const [endDate, setEndDate] = useState<Date>(new Date(task.endDate));
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState<Required<UpdateTaskInput>>({
+    title: '',
+    description: '',
+    status: 'todo',
+    startDate: new Date().toISOString(),
+    endDate: new Date().toISOString(),
+    assignedTo: '',
+    projectId: '',
+  });
 
-  // Reset form when task changes
+  // Update form data when task changes
   useEffect(() => {
-    setTitle(task.title);
-    setDescription(task.description);
-    setStatus(task.status);
-    setStartDate(new Date(task.startDate));
-    setEndDate(new Date(task.endDate));
-  }, [task]);
-
-  const handleStartDateChange = (date: Date | null) => {
-    if (!date) return;
-    
-    // Set hours to start of day
-    date.setHours(0, 0, 0, 0);
-    setStartDate(date);
-
-    // If end date is before new start date, update it
-    if (endDate < date) {
-      const newEnd = new Date(date);
-      newEnd.setHours(23, 59, 59, 999);
-      setEndDate(newEnd);
+    if (task) {
+      setFormData({
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        startDate: task.startDate,
+        endDate: task.endDate,
+        assignedTo: task.assignedTo.id,
+        projectId: task.projectId,
+      });
     }
-  };
-
-  const handleEndDateChange = (date: Date | null) => {
-    if (!date) return;
-    
-    // Set hours to end of day
-    date.setHours(23, 59, 59, 999);
-    setEndDate(date);
-  };
+  }, [task]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentProject) return;
-
-    setIsLoading(true);
+    if (!task) return;
 
     try {
-      // Ensure start date is at start of day and end date is at end of day
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      setLoading(true);
+      // Only send changed fields
+      const changedFields: UpdateTaskInput = {};
+      const originalTask = {
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        startDate: task.startDate,
+        endDate: task.endDate,
+        assignedTo: task.assignedTo.id,
+        projectId: task.projectId,
+      };
 
-      await updateTask(task._id, {
-        title,
-        description,
-        status,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+      (Object.keys(formData) as Array<keyof typeof formData>).forEach((key) => {
+        if (formData[key] !== originalTask[key]) {
+          if (key === 'status') {
+            changedFields[key] = formData[key] as Task['status'];
+          } else {
+            changedFields[key] = formData[key];
+          }
+        }
       });
+
+      await updateTask(task._id, changedFields);
       onClose();
     } catch (error) {
       console.error('Failed to update task:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  if (!currentProject) {
-    return null;
-  }
+  const handleDateChange = (field: 'startDate' | 'endDate', date: Date | null) => {
+    if (date) {
+      setFormData({
+        ...formData,
+        [field]: date.toISOString(),
+      });
+    }
+  };
+
+  if (!task) return null;
 
   return (
     <Modal
@@ -102,63 +102,72 @@ export default function EditTaskModal({ task, opened, onClose }: EditTaskModalPr
       size="md"
     >
       <form onSubmit={handleSubmit}>
-        <Stack gap="md">
+        <Stack>
           <TextInput
             label="Title"
-            placeholder="Task title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Enter task title"
             required
+            value={formData.title}
+            onChange={(e) =>
+              setFormData({ ...formData, title: e.currentTarget.value })
+            }
           />
 
           <Textarea
             label="Description"
-            placeholder="Task description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            required
+            placeholder="Enter task description"
             minRows={3}
+            value={formData.description}
+            onChange={(e) =>
+              setFormData({ ...formData, description: e.currentTarget.value })
+            }
           />
 
           <Select
             label="Status"
-            value={status}
-            onChange={(value) => setStatus(value as Task['status'])}
+            value={formData.status}
+            onChange={(value) =>
+              setFormData({ ...formData, status: value as Task['status'] })
+            }
             data={[
               { value: 'todo', label: 'To Do' },
               { value: 'inProgress', label: 'In Progress' },
               { value: 'done', label: 'Done' },
             ]}
-            required
           />
 
           <Group grow>
             <DatePickerInput
               label="Start Date"
               placeholder="Pick start date"
-              value={startDate}
-              onChange={handleStartDateChange}
               required
-              clearable={false}
+              value={new Date(formData.startDate)}
+              onChange={(date) => handleDateChange('startDate', date)}
+              maxDate={new Date(formData.endDate)}
             />
 
             <DatePickerInput
               label="End Date"
               placeholder="Pick end date"
-              value={endDate}
-              onChange={handleEndDateChange}
               required
-              minDate={startDate}
-              clearable={false}
+              value={new Date(formData.endDate)}
+              onChange={(date) => handleDateChange('endDate', date)}
+              minDate={new Date(formData.startDate)}
             />
           </Group>
 
           <Group justify="flex-end" mt="md">
-            <Button variant="subtle" onClick={onClose}>Cancel</Button>
-            <Button type="submit" loading={isLoading}>Save Changes</Button>
+            <Button variant="subtle" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={loading}>
+              Save Changes
+            </Button>
           </Group>
         </Stack>
       </form>
     </Modal>
   );
-}
+};
+
+export default EditTaskModal;

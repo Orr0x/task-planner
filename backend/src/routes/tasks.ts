@@ -12,25 +12,16 @@ import {
 
 const router = express.Router();
 
-// Get all tasks
-router.get('/', auth, getTasks);
-
-// Get single task
-router.get('/:id', auth, getTask);
-
-// Create task
-router.post('/', auth, createTask);
-
-// Update task
-router.patch('/:id', auth, updateTask);
-
-// Delete task
-router.delete('/:id', auth, deleteTask);
-
-// Bulk update tasks
+// Bulk operations must come before individual task routes
+// to prevent /bulk being treated as an :id parameter
 router.patch('/bulk', auth, bulkUpdateTasks);
-
-// Bulk delete tasks
 router.delete('/bulk', auth, bulkDeleteTasks);
+
+// Individual task operations
+router.get('/', auth, getTasks);
+router.post('/', auth, createTask);
+router.get('/:id', auth, getTask);
+router.patch('/:id', auth, updateTask);
+router.delete('/:id', auth, deleteTask);
 
 export default router;

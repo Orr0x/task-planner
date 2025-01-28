@@ -1,104 +1,124 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { MantineProvider, createTheme } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
+import { MantineProvider, LoadingOverlay } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ProjectProvider } from './contexts/ProjectContext';
 import { TaskProvider } from './contexts/TaskContext';
-
-// Pages
+import { ProjectProvider } from './contexts/ProjectContext';
+import { authApi } from './services/api';
+import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
+import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
+import '@mantine/dates/styles.css';
 
-const queryClient = new QueryClient();
-
-const theme = createTheme({
-  primaryColor: 'blue',
-  defaultRadius: 'md',
-  fontFamily: 'Inter, sans-serif',
-  components: {
-    Button: {
-      defaultProps: {
-        size: 'md',
-      },
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      refetchOnWindowFocus: false,
     },
   },
 });
 
-// Protected Route wrapper
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
+const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
+  const token = localStorage.getItem('token');
+  const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const validateToken = async () => {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        await authApi.getCurrentUser();
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Token validation failed:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/login', { state: { from: location }, replace: true });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    validateToken();
+  }, [token, location, navigate]);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <LoadingOverlay visible={true} />;
   }
 
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-
-  return (
-    <ProjectProvider>
-      <TaskProvider>{children}</TaskProvider>
-    </ProjectProvider>
-  );
-};
-
-// Public Route wrapper (redirects to dashboard if already authenticated)
-const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (user) {
-    return <Navigate to="/dashboard" />;
+  if (!token || !isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
 };
 
-function App() {
+const AuthenticatedApp = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    if (!token && location.pathname !== '/register') {
+      navigate('/login');
+    }
+  }, [token, navigate, location.pathname]);
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={theme} defaultColorScheme="light">
-        <Notifications position="top-right" />
-        <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route
-                path="/login"
-                element={
-                  <PublicRoute>
-                    <Login />
-                  </PublicRoute>
-                }
-              />
-              <Route
-                path="/register"
-                element={
-                  <PublicRoute>
-                    <Register />
-                  </PublicRoute>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/" element={<Navigate to="/dashboard" />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthProvider>
-      </MantineProvider>
-    </QueryClientProvider>
+    <ProjectProvider>
+      <TaskProvider>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route 
+            path="/login" 
+            element={token ? <Navigate to="/" replace /> : <Login />} 
+          />
+          <Route 
+            path="/register" 
+            element={token ? <Navigate to="/" replace /> : <Register />} 
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </TaskProvider>
+    </ProjectProvider>
   );
-}
+};
+
+const App = () => {
+  return (
+    <MantineProvider>
+      <Notifications />
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthenticatedApp />
+        </BrowserRouter>
+      </QueryClientProvider>
+    </MantineProvider>
+  );
+};
 
 export default App;

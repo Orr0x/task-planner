@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   TextInput,
   PasswordInput,
@@ -9,76 +9,143 @@ import {
   Button,
   Text,
   Stack,
+  Alert,
 } from '@mantine/core';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { useAuth } from '../contexts/AuthContext';
+import { authApi } from '../services/api';
 
-export default function Register() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
+const Register = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    fullName: '',
+  });
+
+  // Clear any existing auth data on mount
+  useEffect(() => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setError(null);
+
+    // Basic validation
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
 
     try {
-      await register(email, password, fullName);
-      notifications.show({
-        title: 'Success',
-        message: 'Account created successfully',
-        color: 'green',
-      });
+      setLoading(true);
+      const response = await authApi.register(formData);
+      
+      if (response.success && response.data.token && response.data.user) {
+        // Store auth data
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+
+        notifications.show({
+          title: 'Success',
+          message: `Welcome, ${response.data.user.fullName}! Your account has been created.`,
+          color: 'green',
+        });
+
+        // Navigate to home
+        navigate('/', { replace: true });
+      } else {
+        setError('Invalid response from server');
+      }
     } catch (error: any) {
+      console.error('Registration error:', error);
+      setError(
+        error.response?.data?.error || 
+        error.message || 
+        'Failed to create account. Please try again.'
+      );
+      
       notifications.show({
         title: 'Error',
         message: error.response?.data?.error || 'Failed to create account',
         color: 'red',
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <Container size={420} my={40}>
-      <Title ta="center" style={{ fontFamily: 'Greycliff CF' }} fw={900}>
-        Create an account
-      </Title>
-      <Text ta="center" c="dimmed" size="sm" mt={5}>
+      <Title ta="center">Create an account</Title>
+      <Text c="dimmed" size="sm" ta="center" mt={5}>
         Already have an account?{' '}
-        <Link to="/login" style={{ color: 'inherit', fontWeight: 700 }}>
+        <Link to="/login" style={{ color: 'var(--mantine-color-blue-6)' }}>
           Sign in
         </Link>
       </Text>
 
       <Paper withBorder shadow="md" p={30} mt={30} radius="md">
+        {error && (
+          <Alert 
+            icon={<IconAlertCircle size={16} />} 
+            title="Error" 
+            color="red" 
+            mb="md"
+            variant="light"
+          >
+            {error}
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit}>
-          <Stack gap="md">
+          <Stack>
             <TextInput
               label="Full Name"
-              placeholder="John Doe"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Your name"
               required
+              value={formData.fullName}
+              onChange={(e) =>
+                setFormData({ ...formData, fullName: e.currentTarget.value })
+              }
+              error={error ? ' ' : undefined}
+              disabled={loading}
             />
+
             <TextInput
               label="Email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
               required
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.currentTarget.value })
+              }
+              error={error ? ' ' : undefined}
+              disabled={loading}
             />
+
             <PasswordInput
               label="Password"
-              placeholder="Your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Create a password"
               required
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.currentTarget.value })
+              }
+              error={error ? ' ' : undefined}
+              disabled={loading}
             />
-            <Button type="submit" loading={isLoading}>
+
+            <Button 
+              type="submit" 
+              loading={loading}
+              fullWidth
+            >
               Create account
             </Button>
           </Stack>
@@ -86,4 +153,6 @@ export default function Register() {
       </Paper>
     </Container>
   );
-}
+};
+
+export default Register;

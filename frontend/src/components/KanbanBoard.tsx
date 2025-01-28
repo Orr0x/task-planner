@@ -1,102 +1,134 @@
 import { useState } from 'react';
 import {
-  DndContext,
-  DragEndEvent,
-  DragOverlay,
-  useSensors,
-  useSensor,
-  PointerSensor,
-} from '@dnd-kit/core';
-import { Grid, Paper, Title, Button, Group, rem } from '@mantine/core';
+  Paper,
+  Text,
+  Group,
+  Button,
+  Stack,
+  Box,
+  rem,
+} from '@mantine/core';
+import { DragDropContext, Droppable, DropResult } from '@hello-pangea/dnd';
 import { useTask } from '../contexts/TaskContext';
 import { Task } from '../types';
-import TaskCard from '../components/TaskCard';
-import TaskColumn from '../components/TaskColumn';
-import CreateTaskModal from '../components/CreateTaskModal';
+import TaskCard from './TaskCard';
+import CreateTaskModal from './CreateTaskModal';
 
-const COLUMN_TITLES = {
-  todo: 'To Do',
-  inProgress: 'In Progress',
-  done: 'Done',
-} as const;
-
-export default function KanbanBoard() {
+const KanbanBoard = () => {
   const { tasks, updateTask } = useTask();
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
+
+  const columns: { id: Task['status']; title: string }[] = [
+    { id: 'todo', title: 'To Do' },
+    { id: 'inProgress', title: 'In Progress' },
+    { id: 'done', title: 'Done' },
+  ];
 
   const getTasksByStatus = (status: Task['status']) => {
-    return tasks.filter((task) => task.status === status);
+    return tasks.filter(task => task.status === status);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (!over) return;
+  const handleDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result;
 
-    const taskId = active.id as string;
-    const task = tasks.find((t) => t._id === taskId);
-    const newStatus = over.id as Task['status'];
+    // Dropped outside a valid droppable
+    if (!destination) return;
 
-    if (task && task.status !== newStatus) {
-      updateTask(taskId, { status: newStatus });
+    // Dropped in the same position
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
     }
 
-    setActiveId(null);
+    // Update task status if moved to a different column
+    if (destination.droppableId !== source.droppableId) {
+      try {
+        await updateTask(draggableId, {
+          status: destination.droppableId as Task['status'],
+        });
+      } catch (error) {
+        console.error('Failed to update task status:', error);
+      }
+    }
+  };
+
+  const getColumnColor = (status: Task['status']) => {
+    switch (status) {
+      case 'todo':
+        return 'blue';
+      case 'inProgress':
+        return 'yellow';
+      case 'done':
+        return 'green';
+      default:
+        return 'gray';
+    }
   };
 
   return (
     <>
       <Group justify="space-between" mb="md">
-        <Title order={2}>Task Board</Title>
+        <Text size="xl" fw={700}>
+          Kanban Board
+        </Text>
         <Button onClick={() => setCreateModalOpen(true)}>Create Task</Button>
       </Group>
 
-      <DndContext
-        sensors={sensors}
-        onDragStart={(event) => setActiveId(event.active.id as string)}
-        onDragEnd={handleDragEnd}
-      >
-        <Grid>
-          {(Object.keys(COLUMN_TITLES) as Array<keyof typeof COLUMN_TITLES>).map(
-            (status) => (
-              <Grid.Col span={{ base: 12, md: 4 }} key={status}>
-                <Paper
-                  shadow="xs"
-                  p="md"
-                  withBorder
-                  style={{ height: '100%', minHeight: rem(500) }}
-                >
-                  <Title order={3} mb="md">
-                    {COLUMN_TITLES[status]}
-                  </Title>
-                  <TaskColumn
-                    tasks={getTasksByStatus(status)}
-                    status={status}
-                  />
-                </Paper>
-              </Grid.Col>
-            )
-          )}
-        </Grid>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Group align="flex-start" grow>
+          {columns.map((column) => (
+            <Paper
+              key={column.id}
+              shadow="xs"
+              p="md"
+              withBorder
+              style={{
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                minHeight: rem(500),
+              }}
+            >
+              <Box
+                mb="md"
+                style={{
+                  borderBottom: `3px solid var(--mantine-color-${getColumnColor(
+                    column.id
+                  )}-6)`,
+                  paddingBottom: rem(8),
+                }}
+              >
+                <Group justify="space-between">
+                  <Text fw={600}>{column.title}</Text>
+                  <Text size="sm" c="dimmed">
+                    {getTasksByStatus(column.id).length}
+                  </Text>
+                </Group>
+              </Box>
 
-        <DragOverlay>
-          {activeId ? (
-            <TaskCard
-              task={tasks.find((task) => task._id === activeId)!}
-              overlay
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+              <Droppable droppableId={column.id}>
+                {(provided) => (
+                  <Stack
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    gap="sm"
+                    style={{ minHeight: rem(100) }}
+                  >
+                    {getTasksByStatus(column.id).map((task, index) => (
+                      <TaskCard
+                        key={task._id}
+                        task={task}
+                        index={index}
+                      />
+                    ))}
+                    {provided.placeholder}
+                  </Stack>
+                )}
+              </Droppable>
+            </Paper>
+          ))}
+        </Group>
+      </DragDropContext>
 
       <CreateTaskModal
         opened={createModalOpen}
@@ -104,4 +136,6 @@ export default function KanbanBoard() {
       />
     </>
   );
-}
+};
+
+export default KanbanBoard;

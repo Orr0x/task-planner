@@ -5,116 +5,64 @@ import {
   Textarea,
   Button,
   Group,
-  Select,
   Stack,
+  Select,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useTask } from '../contexts/TaskContext';
-import { useAuth } from '../contexts/AuthContext';
 import { useProject } from '../contexts/ProjectContext';
-import type { CreateTaskInput } from '../types';
+import { Task, CreateTaskInput } from '../types';
 
 interface CreateTaskModalProps {
   opened: boolean;
   onClose: () => void;
 }
 
-export default function CreateTaskModal({ opened, onClose }: CreateTaskModalProps) {
+const CreateTaskModal = ({ opened, onClose }: CreateTaskModalProps) => {
   const { createTask } = useTask();
-  const { user } = useAuth();
   const { currentProject } = useProject();
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Initialize dates with start of day for start date and end of day for end date
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const todayEnd = new Date(today);
-  todayEnd.setHours(23, 59, 59, 999);
-
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<Omit<CreateTaskInput, 'projectId'>>({
     title: '',
     description: '',
     status: 'todo',
-    startDate: today.toISOString(),
-    endDate: todayEnd.toISOString(),
-    assignedTo: user?.id || '',
+    startDate: new Date().toISOString(),
+    endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    assignedTo: '', // Will be set to current user by default in the backend
   });
-
-  const handleStartDateChange = (date: Date | null) => {
-    if (!date) return;
-    
-    // Set hours to start of day
-    date.setHours(0, 0, 0, 0);
-    
-    // If end date is before new start date, update both
-    const currentEnd = new Date(formData.endDate);
-    if (currentEnd < date) {
-      const newEnd = new Date(date);
-      newEnd.setHours(23, 59, 59, 999);
-      setFormData({
-        ...formData,
-        startDate: date.toISOString(),
-        endDate: newEnd.toISOString(),
-      });
-    } else {
-      setFormData({
-        ...formData,
-        startDate: date.toISOString(),
-      });
-    }
-  };
-
-  const handleEndDateChange = (date: Date | null) => {
-    if (!date) return;
-    
-    // Set hours to end of day
-    date.setHours(23, 59, 59, 999);
-    setFormData({
-      ...formData,
-      endDate: date.toISOString(),
-    });
-  };
-
-  const resetForm = () => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    setFormData({
-      title: '',
-      description: '',
-      status: 'todo',
-      startDate: now.toISOString(),
-      endDate: endOfDay.toISOString(),
-      assignedTo: user?.id || '',
-    });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentProject) {
-      // This shouldn't happen as the create task button should be disabled when no project is selected
-      return;
-    }
-
-    setIsLoading(true);
+    if (!currentProject) return;
 
     try {
-      await createTask(formData);
+      setLoading(true);
+      await createTask(formData); // createTask will add projectId internally
       onClose();
-      resetForm();
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        status: 'todo',
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        assignedTo: '',
+      });
     } catch (error) {
       console.error('Failed to create task:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  if (!currentProject) {
-    return null;
-  }
+  const handleDateChange = (field: 'startDate' | 'endDate', date: Date | null) => {
+    if (date) {
+      setFormData({
+        ...formData,
+        [field]: date.toISOString(),
+      });
+    }
+  };
 
   return (
     <Modal
@@ -122,66 +70,59 @@ export default function CreateTaskModal({ opened, onClose }: CreateTaskModalProp
       onClose={onClose}
       title="Create New Task"
       size="md"
-      padding="md"
     >
       <form onSubmit={handleSubmit}>
-        <Stack gap="md">
+        <Stack>
           <TextInput
             label="Title"
             placeholder="Enter task title"
+            required
             value={formData.title}
             onChange={(e) =>
-              setFormData({ ...formData, title: e.target.value })
+              setFormData({ ...formData, title: e.currentTarget.value })
             }
-            required
           />
 
           <Textarea
             label="Description"
             placeholder="Enter task description"
+            minRows={3}
             value={formData.description}
             onChange={(e) =>
-              setFormData({ ...formData, description: e.target.value })
+              setFormData({ ...formData, description: e.currentTarget.value })
             }
-            required
-            minRows={3}
           />
 
           <Select
             label="Status"
             value={formData.status}
-            onChange={(value: string | null) =>
-              setFormData({
-                ...formData,
-                status: (value as 'todo' | 'inProgress' | 'done') || 'todo',
-              })
+            onChange={(value) =>
+              setFormData({ ...formData, status: value as Task['status'] })
             }
             data={[
               { value: 'todo', label: 'To Do' },
               { value: 'inProgress', label: 'In Progress' },
               { value: 'done', label: 'Done' },
             ]}
-            required
           />
 
           <Group grow>
             <DatePickerInput
               label="Start Date"
               placeholder="Pick start date"
-              value={new Date(formData.startDate)}
-              onChange={handleStartDateChange}
               required
-              clearable={false}
+              value={new Date(formData.startDate)}
+              onChange={(date) => handleDateChange('startDate', date)}
+              maxDate={new Date(formData.endDate)}
             />
 
             <DatePickerInput
               label="End Date"
               placeholder="Pick end date"
-              value={new Date(formData.endDate)}
-              onChange={handleEndDateChange}
               required
+              value={new Date(formData.endDate)}
+              onChange={(date) => handleDateChange('endDate', date)}
               minDate={new Date(formData.startDate)}
-              clearable={false}
             />
           </Group>
 
@@ -189,7 +130,7 @@ export default function CreateTaskModal({ opened, onClose }: CreateTaskModalProp
             <Button variant="subtle" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" loading={isLoading}>
+            <Button type="submit" loading={loading}>
               Create Task
             </Button>
           </Group>
@@ -197,4 +138,6 @@ export default function CreateTaskModal({ opened, onClose }: CreateTaskModalProp
       </form>
     </Modal>
   );
-}
+};
+
+export default CreateTaskModal;

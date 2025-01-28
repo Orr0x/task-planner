@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Paper,
   Text,
@@ -12,93 +12,208 @@ import {
   Select,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
-import { useDraggable } from '@dnd-kit/core';
-import { DndContext, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { useTask } from '../contexts/TaskContext';
 import { Task } from '../types';
 import CreateTaskModal from './CreateTaskModal';
 import EditTaskModal from './EditTaskModal';
+import React from 'react';
 
-const CELL_WIDTH = 60; // Remove rem for calculations
+const CELL_WIDTH = 60;
 const LABEL_WIDTH = rem(200);
 const ROW_HEIGHT = rem(50);
 const HEADER_HEIGHT = rem(60);
 const DEFAULT_DAYS_TO_SHOW = 14;
 const RESIZE_HANDLE_WIDTH = 8;
 
-const getDateDiffInDays = (date1: Date, date2: Date) => {
-  const d1 = new Date(date1);
-  const d2 = new Date(date2);
-  d1.setHours(0, 0, 0, 0);
-  d2.setHours(0, 0, 0, 0);
-  return Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
-};
-
-const formatDateTime = (date: Date) => {
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(date);
-};
-
 interface ResizeHandleProps {
   taskId: string;
   position: 'start' | 'end';
-  onResizeStart: (taskId: string, position: 'start' | 'end') => void;
+  onResizeStart: (taskId: string, position: 'start' | 'end', event: React.MouseEvent) => void;
 }
 
-function ResizeHandle({ taskId, position, onResizeStart }: ResizeHandleProps) {
-  const { attributes, listeners, setNodeRef } = useDraggable({
-    id: `${taskId}-resize-${position}`,
-    data: { taskId, position },
-  });
+const ResizeHandle: React.FC<ResizeHandleProps> = ({ taskId, position, onResizeStart }) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onResizeStart(taskId, position, e);
+  }, [taskId, position, onResizeStart]);
 
   return (
     <Box
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
       style={{
         position: 'absolute',
         top: 0,
         bottom: 0,
-        width: rem(RESIZE_HANDLE_WIDTH),
+        width: rem(RESIZE_HANDLE_WIDTH * 2),
         cursor: 'ew-resize',
         zIndex: 2,
-        ...(position === 'start' ? { left: -RESIZE_HANDLE_WIDTH / 2 } : { right: -RESIZE_HANDLE_WIDTH / 2 }),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...(position === 'start' ? { left: -RESIZE_HANDLE_WIDTH } : { right: -RESIZE_HANDLE_WIDTH }),
       }}
-      onMouseDown={() => onResizeStart(taskId, position)}
-    />
+      onMouseDown={handleMouseDown}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          top: '25%',
+          bottom: '25%',
+          width: '4px',
+          backgroundColor: 'var(--mantine-color-blue-5)',
+          opacity: 0,
+          transition: 'all 0.15s ease',
+          borderRadius: '2px',
+        }}
+        onMouseEnter={(e) => {
+          const target = e.currentTarget;
+          target.style.opacity = '0.8';
+          target.style.top = '10%';
+          target.style.bottom = '10%';
+          target.style.boxShadow = '0 0 4px rgba(0, 0, 0, 0.2)';
+          target.style.width = '6px';
+        }}
+        onMouseLeave={(e) => {
+          const target = e.currentTarget;
+          target.style.opacity = '0';
+          target.style.top = '25%';
+          target.style.bottom = '25%';
+          target.style.boxShadow = 'none';
+          target.style.width = '4px';
+        }}
+      />
+    </Box>
   );
-}
+};
 
-export default function GanttChart() {
+const GanttChart: React.FC = () => {
   const { tasks, updateTask } = useTask();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editTask, setEditTask] = useState<Task | null>(null);
   const [viewStartDate, setViewStartDate] = useState<Date>(new Date());
   const [daysToShow, setDaysToShow] = useState(DEFAULT_DAYS_TO_SHOW);
   const [now, setNow] = useState(new Date());
-  const [resizing, setResizing] = useState<{ taskId: string; position: 'start' | 'end' } | null>(null);
+  const [resizing, setResizing] = useState<{
+    taskId: string;
+    position: 'start' | 'end';
+    initialX: number;
+    initialDate: Date;
+    task: Task;
+  } | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
+  const getDateDiffInDays = useCallback((date1: Date, date2: Date) => {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    d1.setHours(0, 0, 0, 0);
+    d2.setHours(0, 0, 0, 0);
+    return Math.floor((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+  }, []);
+
+  const formatDateTime = useCallback((date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(date);
+  }, []);
 
   // Update current time every second
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const getTaskGridPosition = useCallback((task: Task) => {
+    const startDate = new Date(task.startDate);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(task.endDate);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Calculate days from view start to task start and end
+    const daysFromViewStartToTaskStart = getDateDiffInDays(viewStartDate, startDate);
+    const daysFromViewStartToTaskEnd = getDateDiffInDays(viewStartDate, endDate);
+
+    // If the task is completely outside our visible range
+    if (daysFromViewStartToTaskStart >= daysToShow || daysFromViewStartToTaskEnd < 0) {
+      return null;
+    }
+
+    // Calculate visible start and end columns
+    const visibleStart = Math.max(0, daysFromViewStartToTaskStart);
+    const visibleEnd = Math.min(daysToShow, daysFromViewStartToTaskEnd + 1);
+
+    return {
+      gridColumnStart: visibleStart + 1,
+      gridColumnEnd: visibleEnd + 1,
+    };
+  }, [viewStartDate, daysToShow, getDateDiffInDays]);
+
+  // Handle resize events
+  useEffect(() => {
+    if (!resizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizing) return;
+
+      const deltaX = e.clientX - resizing.initialX;
+      const daysDelta = Math.round(deltaX / CELL_WIDTH);
+      
+      const newDate = new Date(resizing.initialDate);
+      newDate.setDate(newDate.getDate() + daysDelta);
+
+      // Update task bar position in real-time
+      const taskBar = document.querySelector(`[data-task-id="${resizing.taskId}"]`) as HTMLElement;
+      if (taskBar) {
+        const gridPosition = getTaskGridPosition({
+          ...resizing.task,
+          [resizing.position === 'start' ? 'startDate' : 'endDate']: newDate.toISOString(),
+        });
+
+        if (gridPosition) {
+          taskBar.style.gridColumn = `${gridPosition.gridColumnStart} / ${gridPosition.gridColumnEnd}`;
+        }
+      }
+    };
+
+    const handleMouseUp = async (e: MouseEvent) => {
+      if (!resizing) return;
+
+      const deltaX = e.clientX - resizing.initialX;
+      const daysDelta = Math.round(deltaX / CELL_WIDTH);
+      
+      const newDate = new Date(resizing.initialDate);
+      newDate.setDate(newDate.getDate() + daysDelta);
+
+      try {
+        if (resizing.position === 'start') {
+          const endDate = new Date(resizing.task.endDate);
+          if (newDate < endDate) {
+            await updateTask(resizing.taskId, { startDate: newDate.toISOString() });
+          }
+        } else {
+          const startDate = new Date(resizing.task.startDate);
+          if (newDate > startDate) {
+            await updateTask(resizing.taskId, { endDate: newDate.toISOString() });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to update task:', error);
+      }
+
+      setResizing(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [resizing, updateTask, getTaskGridPosition]);
 
   // Calculate date boundaries from tasks
   const { earliestStart, latestEnd } = useMemo(() => {
@@ -147,32 +262,7 @@ export default function GanttChart() {
     }
   };
 
-  const getTaskGridPosition = (task: Task) => {
-    const startDate = new Date(task.startDate);
-    startDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(task.endDate);
-    endDate.setHours(23, 59, 59, 999);
-
-    // Calculate days from view start to task start and end
-    const daysFromViewStartToTaskStart = getDateDiffInDays(viewStartDate, startDate);
-    const daysFromViewStartToTaskEnd = getDateDiffInDays(viewStartDate, endDate);
-
-    // If the task is completely outside our visible range
-    if (daysFromViewStartToTaskStart >= daysToShow || daysFromViewStartToTaskEnd < 0) {
-      return null;
-    }
-
-    // Calculate visible start and end columns
-    const visibleStart = Math.max(0, daysFromViewStartToTaskStart);
-    const visibleEnd = Math.min(daysToShow, daysFromViewStartToTaskEnd + 1);
-
-    return {
-      gridColumnStart: visibleStart + 1,
-      gridColumnEnd: visibleEnd + 1,
-    };
-  };
-
-  const isTaskVisible = (task: Task) => {
+  const isTaskVisible = useCallback((task: Task) => {
     const taskStart = new Date(task.startDate);
     taskStart.setHours(0, 0, 0, 0);
     const taskEnd = new Date(task.endDate);
@@ -182,9 +272,9 @@ export default function GanttChart() {
     rangeEnd.setHours(23, 59, 59, 999);
     
     return taskEnd >= viewStartDate && taskStart <= rangeEnd;
-  };
+  }, [viewStartDate, dateRange]);
 
-  const getCurrentTimePosition = () => {
+  const getCurrentTimePosition = useCallback(() => {
     const viewStartCopy = new Date(viewStartDate);
     viewStartCopy.setHours(0, 0, 0, 0);
     
@@ -207,50 +297,27 @@ export default function GanttChart() {
     return {
       left: `${pixels}px`,
     };
-  };
+  }, [viewStartDate, daysToShow, now]);
 
-  const handleResizeStart = (taskId: string, position: 'start' | 'end') => {
-    setResizing({ taskId, position });
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    if (!resizing) return;
-
-    const { taskId, position } = resizing;
+  const handleResizeStart = useCallback((taskId: string, position: 'start' | 'end', event: React.MouseEvent) => {
+    event.preventDefault();
     const task = tasks.find(t => t._id === taskId);
     if (!task) return;
 
-    // Calculate the new date based on drag position
-    const { delta } = event;
-    const daysDelta = Math.round(delta.x / CELL_WIDTH);
-    
-    const newDates = {
-      startDate: new Date(task.startDate),
-      endDate: new Date(task.endDate),
-    };
+    setResizing({
+      taskId,
+      position,
+      initialX: event.clientX,
+      initialDate: new Date(position === 'start' ? task.startDate : task.endDate),
+      task,
+    });
+  }, [tasks]);
 
-    if (position === 'start') {
-      newDates.startDate.setDate(newDates.startDate.getDate() + daysDelta);
-      // Ensure start date doesn't go beyond end date
-      if (newDates.startDate < newDates.endDate) {
-        await updateTask(taskId, { startDate: newDates.startDate.toISOString() });
-      }
-    } else {
-      newDates.endDate.setDate(newDates.endDate.getDate() + daysDelta);
-      // Ensure end date doesn't go before start date
-      if (newDates.endDate > newDates.startDate) {
-        await updateTask(taskId, { endDate: newDates.endDate.toISOString() });
-      }
-    }
-
-    setResizing(null);
-  };
-
-  const visibleTasks = tasks.filter(isTaskVisible);
+  const visibleTasks = useMemo(() => tasks.filter(isTaskVisible), [tasks, isTaskVisible]);
   const timePosition = getCurrentTimePosition();
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <>
       <Group justify="space-between" mb="md">
         <Group>
           <Text size="xl" fw={700}>
@@ -424,6 +491,7 @@ export default function GanttChart() {
                       multiline
                     >
                       <Box
+                        data-task-id={task._id}
                         style={{
                           gridColumn: `${gridPosition.gridColumnStart} / ${gridPosition.gridColumnEnd}`,
                           position: 'absolute',
@@ -435,11 +503,10 @@ export default function GanttChart() {
                           backgroundColor: `var(--mantine-color-${getStatusColor(task.status)}-4)`,
                           borderRadius: 'var(--mantine-radius-sm)',
                           cursor: resizing?.taskId === task._id ? 'ew-resize' : 'pointer',
-                          transition: 'all 0.2s',
-                          zIndex: 1,
+                          transition: resizing ? 'none' : 'all 0.2s',
+                          zIndex: resizing?.taskId === task._id ? 5 : 1,
                           '&:hover': {
                             filter: 'brightness(0.95)',
-                            transform: 'translateY(-50%) scale(1.02)',
                           },
                         }}
                         onClick={() => !resizing && setEditTask(task)}
@@ -481,6 +548,8 @@ export default function GanttChart() {
         opened={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
       />
-    </DndContext>
+    </>
   );
-}
+};
+
+export default GanttChart;
